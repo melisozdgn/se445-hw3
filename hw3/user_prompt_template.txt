@@ -1,0 +1,6 @@
+Classify the following lead message:
+
+Name: {{validateLead.name}}
+Message: {{validateLead.message}}
+
+Return JSON only.

@@ -1,0 +1,116 @@
+{
+  "name": "HW3 – Lead Capture + Validation + AI Classification",
+  "description": "Validates incoming leads, classifies Intent & Urgency with AI, and writes full enriched records to Google Sheets.",
+  "version": "1.0.0",
+  "trigger": {
+    "id": "httpTrigger",
+    "type": "http",
+    "name": "HTTP POST /lead",
+    "config": {
+      "method": "POST",
+      "path": "/lead",
+      "auth": {
+        "type": "apiKey",
+        "header": "x-api-key"
+      },
+      "responseMode": "lastNode"
+    }
+  },
+  "nodes": [
+    {
+      "id": "validateLead",
+      "type": "function",
+      "name": "Validate Lead Fields",
+      "description": "Checks presence of name/email/message and validates email format. Sets status=Valid|Invalid. Never discards the lead.",
+      "position": {
+        "x": 300,
+        "y": 200
+      },
+      "code": "// Full source: functions/validateLead.js\nconst body = input.body || {};\nconst name = String(body.name || '').trim();\nconst email = String(body.email || '').trim();\nconst message = String(body.message || '').trim();\nconst errors = [];\nif (!name) errors.push('Missing field: name');\nif (!email) errors.push('Missing field: email');\nconst EMAIL_REGEX = /^[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}$/;\nif (email && !EMAIL_REGEX.test(email)) errors.push(`Invalid email format: \"${email}\"`);\nif (!message) errors.push('Missing field: message');\nconst status = errors.length === 0 ? 'Valid' : 'Invalid';\nreturn { name, email, message, status, validationErrors: errors, validationErrorStr: errors.join('; ') || 'None', isValid: status === 'Valid' };"
+    },
+    {
+      "id": "classifyLead",
+      "type": "llm",
+      "name": "AI – Classify Intent & Urgency",
+      "description": "Sends the message to an LLM with a structured prompt. Extracts Intent (Sales/Support/Partnership/General) and Urgency (High/Medium/Low).",
+      "position": {
+        "x": 600,
+        "y": 200
+      },
+      "config": {
+        "model": "gpt-4o-mini",
+        "temperature": 0.2,
+        "max_tokens": 60,
+        "response_format": {
+          "type": "json_object"
+        },
+        "systemPrompt": "You are a lead classification assistant for a B2B SaaS company.\nYour task is to analyze incoming lead messages and classify them across two dimensions.\n\nINTENT — Choose EXACTLY ONE:\n  - Sales: pricing, plans, purchasing\n  - Support: technical issue, bug, product help\n  - Partnership: collaborate, integrate, reseller\n  - General: does not fit any of the above\n\nURGENCY — Choose EXACTLY ONE:\n  - High: urgent language, hard deadlines, critical failures\n  - Medium: actionable but not time-sensitive\n  - Low: exploratory, informational\n\nCONSTRAINTS:\n  - Respond ONLY with valid JSON. No explanation. No markdown.\n  - Default: {\"intent\":\"General\",\"urgency\":\"Low\"}\n\nOutput: {\"intent\": \"...\", \"urgency\": \"...\"}",
+        "userPrompt": "Classify the following lead message:\n\nName: {{validateLead.name}}\nMessage: {{validateLead.message}}\n\nReturn JSON only."
+      }
+    },
+    {
+      "id": "saveToSheets",
+      "type": "connector",
+      "name": "Save Full Record to Google Sheets",
+      "description": "Appends a 7-column row: name, email, message, timestamp, status, intent, urgency.",
+      "position": {
+        "x": 900,
+        "y": 200
+      },
+      "connector": "google-sheets",
+      "action": "appendRow",
+      "config": {
+        "spreadsheetId": "1-8ymgdlvWunxenAQmPzSHT3EKkQME3Jhf8in9siL_JY",
+        "sheetName": "Leads_HW3",
+        "valueInputOption": "RAW",
+        "values": [
+          "{{validateLead.name}}",
+          "{{validateLead.email}}",
+          "{{validateLead.message}}",
+          "{{$now}}",
+          "{{validateLead.status}}",
+          "{{classifyLead.intent}}",
+          "{{classifyLead.urgency}}"
+        ]
+      }
+    },
+    {
+      "id": "respondOK",
+      "type": "httpResponse",
+      "name": "Return Enriched Response",
+      "description": "Returns HTTP 200 with validation status, intent, and urgency.",
+      "position": {
+        "x": 1200,
+        "y": 200
+      },
+      "config": {
+        "statusCode": 200,
+        "body": {
+          "success": true,
+          "status": "{{validateLead.status}}",
+          "intent": "{{classifyLead.intent}}",
+          "urgency": "{{classifyLead.urgency}}",
+          "errors": "{{validateLead.validationErrorStr}}"
+        }
+      }
+    }
+  ],
+  "edges": [
+    {
+      "from": "httpTrigger",
+      "to": "validateLead"
+    },
+    {
+      "from": "validateLead",
+      "to": "classifyLead"
+    },
+    {
+      "from": "classifyLead",
+      "to": "saveToSheets"
+    },
+    {
+      "from": "saveToSheets",
+      "to": "respondOK"
+    }
+  ]
+}

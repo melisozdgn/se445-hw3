@@ -1,0 +1,14 @@
+{
+  "name": "hw3-lead-capture-ai-server",
+  "version": "1.0.0",
+  "description": "Local test server for HW3 – Lead Capture + Validation + AI Classification pipeline",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "googleapis": "^131.0.0",
+    "openai": "^4.52.0"
+  }
+}

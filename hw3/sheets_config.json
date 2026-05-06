@@ -1,0 +1,29 @@
+{
+  "_comment": "Replace YOUR_SPREADSHEET_ID with the actual ID from the Google Sheets URL: https://docs.google.com/spreadsheets/d/SPREADSHEET_ID/edit",
+
+  "connector": "google-sheets",
+  "auth": {
+    "type": "oauth2",
+    "scopes": [
+      "https://www.googleapis.com/auth/spreadsheets"
+    ]
+  },
+  "action": "appendRow",
+  "config": {
+    "spreadsheetId": "YOUR_SPREADSHEET_ID",
+    "sheetName": "Leads",
+    "valueInputOption": "RAW",
+    "insertDataOption": "INSERT_ROWS",
+    "values": "{{mapLeadData.rowData}}"
+  },
+
+  "sheet_schema": {
+    "description": "Google Sheet column layout expected by this workflow",
+    "columns": [
+      { "column": "A", "header": "Name",      "source": "body.name",                "type": "string"   },
+      { "column": "B", "header": "Email",     "source": "body.email",               "type": "string"   },
+      { "column": "C", "header": "Message",   "source": "body.message",             "type": "string"   },
+      { "column": "D", "header": "Timestamp", "source": "new Date().toISOString()", "type": "datetime" }
+    ]
+  }
+}
